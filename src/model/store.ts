@@ -25,6 +25,8 @@ interface State extends Doc {
   future: Doc[];
   /** Bumped on every document change; drives autosave. */
   revision: number;
+  /** A short message shown over the drawing, e.g. why an action did nothing. */
+  notice: string | null;
 
   openDocument(a: { pdf: PDFDocumentProxy; name: string; path: string | null; storageKey: string | null; project: Project | null }): void;
   setPage(page: number): void;
@@ -32,12 +34,19 @@ interface State extends Doc {
   setTool(tool: Tool): void;
   setActiveCondition(id: string | null): void;
   select(id: string | null): void;
+  notify(message: string | null): void;
+  /** The part of the page currently on screen, in page points. Set by the viewer. */
+  visibleRect: (() => { x0: number; y0: number; x1: number; y1: number } | null) | null;
 
   /** Push the current document onto the undo stack. Call once before a drag or edit. */
   checkpoint(): void;
   addShape(s: Omit<Shape, 'id' | 'source'> & { source?: Shape['source'] }): string;
   setShapePoints(id: string, points: Pt[]): void;
   deleteShape(id: string): void;
+  /** Add what an AI run produced (new items and highlights) as a single undo step. */
+  applyAgentResult(conditions: Condition[], shapes: Omit<Shape, 'id'>[]): void;
+  /** Remove AI highlights nobody has edited yet, on one page. Returns how many were removed. */
+  removeAgentShapes(page: number): number;
   saveCondition(c: Omit<Condition, 'id'> & { id?: string }): string;
   deleteCondition(id: string): void;
   setScale(page: number, ftPerPt: number, allPages: boolean): void;
@@ -86,6 +95,8 @@ export const useStore = create<State>((set, get) => {
     past: [],
     future: [],
     revision: 0,
+    notice: null,
+    visibleRect: null,
 
     openDocument({ pdf, name, path, storageKey, project }) {
       const conditions = project?.conditions ?? starterConditions();
@@ -111,6 +122,7 @@ export const useStore = create<State>((set, get) => {
     setTool: (tool) => set({ tool }),
     setActiveCondition: (id) => set({ activeConditionId: id }),
     select: (id) => set({ selectedShapeId: id }),
+    notify: (notice) => set({ notice }),
 
     checkpoint: () => set((s) => ({ past: [...s.past, doc(s)].slice(-MAX_HISTORY), future: [] })),
     addShape(s) {
@@ -127,6 +139,20 @@ export const useStore = create<State>((set, get) => {
     deleteShape(id) {
       change((s) => ({ shapes: s.shapes.filter((sh) => sh.id !== id) }));
       if (get().selectedShapeId === id) set({ selectedShapeId: null });
+    },
+    applyAgentResult(conditions, shapes) {
+      change((s) => ({
+        conditions: [...s.conditions, ...conditions],
+        shapes: [...s.shapes, ...shapes.map((sh) => ({ ...sh, id: newId() }))],
+      }));
+    },
+    removeAgentShapes(page) {
+      const n = get().shapes.filter((sh) => sh.page === page && sh.source === 'agent').length;
+      if (n > 0) {
+        change((s) => ({ shapes: s.shapes.filter((sh) => !(sh.page === page && sh.source === 'agent')) }));
+        set({ selectedShapeId: null });
+      }
+      return n;
     },
     saveCondition(c) {
       const id = c.id ?? newId();

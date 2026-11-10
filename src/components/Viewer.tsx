@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { RenderTask } from 'pdfjs-dist';
+import { findArea, getPageRaster } from '../detect/page';
 import { centroid, dist, fmt, measureShape, snapAngle } from '../model/geometry';
 import { useStore } from '../model/store';
 import type { Pt, Shape } from '../model/types';
@@ -39,6 +40,60 @@ export function Viewer({ onCalibrate }: Props) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [draft, setDraft] = useState<Pt[]>([]);
   const [cursor, setCursor] = useState<Pt | null>(null);
+  const [working, setWorking] = useState(false);
+
+  // Let other parts of the app ask which part of the sheet is on screen.
+  useEffect(() => {
+    useStore.setState({
+      visibleRect: () => {
+        const el = scroller.current;
+        if (!el || !svg.current) return null;
+        const v = el.getBoundingClientRect();
+        const r = svg.current.getBoundingClientRect();
+        const z = useStore.getState().zoom;
+        const w = r.width / z;
+        const h = r.height / z;
+        const x0 = Math.max(0, (v.left - r.left) / z);
+        const y0 = Math.max(0, (v.top - r.top) / z);
+        const x1 = Math.min(w, (v.right - r.left) / z);
+        const y1 = Math.min(h, (v.bottom - r.top) / z);
+        return x1 > x0 && y1 > y0 ? { x0, y0, x1, y1 } : null;
+      },
+    });
+    return () => useStore.setState({ visibleRect: null });
+  }, []);
+
+  /** Auto-fill: highlight the enclosed area around a clicked point. */
+  const fillAt = useCallback(async (at: Pt) => {
+    const st = useStore.getState();
+    const cond = st.conditions.find((c) => c.id === st.activeConditionId);
+    if (!st.pdf || !cond) return;
+    if (cond.kind === 'count') {
+      st.notify('Auto-fill works with area and length items. Pick one from the list on the left.');
+      return;
+    }
+    setWorking(true);
+    try {
+      const pr = await getPageRaster(st.pdf, st.page);
+      const found = findArea(pr, at);
+      if (!found || found.open || found.areaPt > 0.5 * pr.width * pr.height) {
+        st.notify("That area isn't fully enclosed by lines, so it can't be filled automatically. Draw it by hand instead.");
+        return;
+      }
+      if (found.areaPt * st.zoom * st.zoom < 60) {
+        st.notify('That spot is too small to fill. Click on open floor inside the room.');
+        return;
+      }
+      st.notify(null);
+      // A length item gets the room's perimeter as a closed run.
+      const points = cond.kind === 'linear' ? [...found.points, found.points[0]] : found.points;
+      st.addShape({ conditionId: cond.id, page: st.page, kind: cond.kind, points });
+    } catch (e) {
+      st.notify(`Auto-fill failed: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      setWorking(false);
+    }
+  }, []);
 
   const condById = useMemo(() => new Map(conditions.map((c) => [c.id, c])), [conditions]);
   const active = activeConditionId ? condById.get(activeConditionId) : undefined;
@@ -210,6 +265,7 @@ export function Viewer({ onCalibrate }: Props) {
       } else if (!mod && e.key.toLowerCase() === 'v') st.setTool('select');
       else if (!mod && e.key.toLowerCase() === 'h') st.setTool('pan');
       else if (!mod && e.key.toLowerCase() === 'd') st.setTool('draw');
+      else if (!mod && e.key.toLowerCase() === 'f') st.setTool('fill');
       else if (!mod && (e.key === '+' || e.key === '=')) zoomAt(1.25);
       else if (!mod && e.key === '-') zoomAt(0.8);
     };
@@ -248,6 +304,11 @@ export function Viewer({ onCalibrate }: Props) {
         setDraft([]);
         onCalibrate(draft[0], p);
       } else setDraft([p]);
+      return;
+    }
+
+    if (tool === 'fill') {
+      if (inside && !working) void fillAt(raw);
       return;
     }
 
@@ -458,7 +519,7 @@ export function Viewer({ onCalibrate }: Props) {
   const draftPts = cursor && draft.length > 0 ? [...draft, cursor] : draft;
   const draftLen = ftPerPt && draftPts.length > 1 && tool === 'draw' ? dist(draftPts[draftPts.length - 2], draftPts[draftPts.length - 1]) * ftPerPt : null;
 
-  const cursorClass = tool === 'pan' ? 'pan' : tool === 'draw' || tool === 'calibrate' ? 'draw' : '';
+  const cursorClass = working ? 'working' : tool === 'pan' ? 'pan' : tool === 'draw' || tool === 'calibrate' ? 'draw' : tool === 'fill' ? 'fill' : '';
 
   return (
     <div

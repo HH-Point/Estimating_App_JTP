@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { fmt, measureShape, totals } from '../model/geometry';
+import { useMemo, useState } from 'react';
+import { fmt, measureShape, polygonArea, totals } from '../model/geometry';
 import { useStore } from '../model/store';
 import { TRADES } from '../model/types';
 
@@ -13,6 +13,18 @@ export function QuantitiesPanel() {
   const selCond = selected && conditions.find((c) => c.id === selected.conditionId);
   const selQ = selected && measureShape(selected, selCond, pageScales[selected.page]);
   const unscaled = all.reduce((n, t) => n + t.unscaled, 0);
+  const [knownSf, setKnownSf] = useState('');
+  const agentCount = shapes.filter((s) => s.source === 'agent').length;
+
+  /** Work the page scale out from a highlight whose real area is written on the drawing. */
+  const scaleFromArea = () => {
+    const sf = parseFloat(knownSf);
+    if (!selected || selected.kind !== 'area' || !(sf > 0)) return;
+    const areaPt = polygonArea(selected.points);
+    if (areaPt <= 0) return;
+    useStore.getState().setScale(selected.page, Math.sqrt(sf / areaPt), false);
+    setKnownSf('');
+  };
 
   return (
     <aside className="quantities" data-testid="quantities">
@@ -58,6 +70,11 @@ export function QuantitiesPanel() {
           {unscaled} highlight{unscaled === 1 ? ' is' : 's are'} on a page with no scale and {unscaled === 1 ? 'is' : 'are'} not included.
         </p>
       )}
+      {agentCount > 0 && (
+        <p className="hint">
+          {agentCount} highlight{agentCount === 1 ? ' was' : 's were'} drawn by the AI and {agentCount === 1 ? 'has' : 'have'} a dashed outline until you adjust {agentCount === 1 ? 'it' : 'them'}. Check {agentCount === 1 ? 'it' : 'them'} against the drawing.
+        </p>
+      )}
       {selected && selCond && (
         <div className="selection">
           <h3>Selected highlight</h3>
@@ -74,6 +91,25 @@ export function QuantitiesPanel() {
             <p>Set the page scale to measure this.</p>
           )}
           {selQ?.perimeterLf !== undefined && <p className="sub">Perimeter {fmt(selQ.perimeterLf)} LF</p>}
+          {selected.kind === 'area' && (
+            <form
+              className="known"
+              onSubmit={(e) => {
+                e.preventDefault();
+                scaleFromArea();
+              }}
+            >
+              <label>
+                {selQ ? 'Area is written on the drawing? Set the page scale from it' : 'If the drawing states this area, set the page scale from it'}
+                <span className="row">
+                  <input type="number" min="0" step="any" placeholder="SF" value={knownSf} onChange={(e) => setKnownSf(e.target.value)} aria-label="Known area in square feet" />
+                  <button type="submit" disabled={!(parseFloat(knownSf) > 0)}>
+                    Set scale
+                  </button>
+                </span>
+              </label>
+            </form>
+          )}
           <button onClick={() => useStore.getState().deleteShape(selected.id)}>Delete highlight</button>
         </div>
       )}

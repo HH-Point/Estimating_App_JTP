@@ -8,12 +8,13 @@
     "build": "npm run assets && tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "e2e": "node e2e/smoke.mjs",
+    "e2e": "node e2e/smoke.mjs && node e2e/ai.mjs",
     "tauri": "tauri",
     "assets": "node scripts/copy-pdf-assets.mjs",
     "sample": "node scripts/make-sample.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.7.0",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.8.4",
     "exceljs": "^4.4.0",

@@ -17,8 +17,8 @@ const svg = `
   <!-- walls -->
   <rect x="${X}" y="${Y}" width="${W}" height="${H}" fill="none" stroke="#000" stroke-width="3"/>
   <line x1="${X + SPLIT}" y1="${Y}" x2="${X + SPLIT}" y2="${Y + H - 60}" stroke="#000" stroke-width="3"/>
-  <!-- door between rooms -->
-  <path d="M${X + SPLIT} ${Y + H - 60} a27 27 0 0 1 27 27" fill="none" stroke="#000" stroke-width="0.6"/>
+  <!-- door between rooms: leaf open 90 degrees into storage, swing arc back to the jamb -->
+  <path d="M${X + SPLIT + 27} ${Y + H - 60} a27 27 0 0 1 -27 27" fill="none" stroke="#000" stroke-width="0.6"/>
   <line x1="${X + SPLIT}" y1="${Y + H - 60}" x2="${X + SPLIT + 27}" y2="${Y + H - 60}" stroke="#000" stroke-width="0.8"/>
   <line x1="${X + SPLIT}" y1="${Y + H - 33}" x2="${X + SPLIT}" y2="${Y + H}" stroke="#000" stroke-width="3"/>
   <!-- room tags -->

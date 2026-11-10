@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { loadSettings, saveSettings } from './ai/settings';
+import { AgentPanel } from './components/AgentPanel';
+import { AiSettingsDialog } from './components/AiSettingsDialog';
 import { ConditionDialog } from './components/ConditionDialog';
 import { QuantitiesPanel } from './components/QuantitiesPanel';
 import { ScaleDialog } from './components/ScaleDialog';
@@ -22,6 +25,17 @@ export function App() {
   const [scaleDlg, setScaleDlg] = useState<number | null | undefined>(undefined);
   /** Condition dialog: undefined = closed, null = new, Condition = edit. */
   const [condDlg, setCondDlg] = useState<Condition | null | undefined>(undefined);
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [aiDlg, setAiDlg] = useState(false);
+  const [ai, setAi] = useState(loadSettings);
+  const notice = useStore((s) => s.notice);
+
+  // Notices over the drawing clear themselves after a few seconds.
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => useStore.getState().notify(null), 7000);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   const open = useCallback(async (file: OpenedPdf | null) => {
     if (!file) return;
@@ -84,7 +98,7 @@ export function App() {
 
   return (
     <div className="app" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
-      <Toolbar onOpen={() => pickPdf().then(open)} onExport={exportExcel} onScale={() => setScaleDlg(null)} saved={saved} />
+      <Toolbar onOpen={() => pickPdf().then(open)} onExport={exportExcel} onScale={() => setScaleDlg(null)} onAgent={() => setAgentOpen(true)} saved={saved} />
       {error && (
         <div className="banner" role="alert">
           {error}
@@ -94,7 +108,16 @@ export function App() {
       {pdf ? (
         <div className="workspace">
           <Sidebar onEdit={setCondDlg} onNew={() => setCondDlg(null)} onScale={() => setScaleDlg(null)} />
-          <Viewer onCalibrate={onCalibrate} />
+          <div className="stage">
+            <Viewer onCalibrate={onCalibrate} />
+            {agentOpen && <AgentPanel settings={ai} onSettings={() => setAiDlg(true)} onClose={() => setAgentOpen(false)} />}
+            {notice && (
+              <div className="toast" role="status">
+                {notice}
+                <button onClick={() => useStore.getState().notify(null)}>Dismiss</button>
+              </div>
+            )}
+          </div>
           <QuantitiesPanel />
         </div>
       ) : (
@@ -113,6 +136,16 @@ export function App() {
         </div>
       )}
       {scaleDlg !== undefined && <ScaleDialog measuredPts={scaleDlg} onClose={() => setScaleDlg(undefined)} />}
+      {aiDlg && (
+        <AiSettingsDialog
+          settings={ai}
+          onSave={(next) => {
+            setAi(next);
+            saveSettings(next);
+          }}
+          onClose={() => setAiDlg(false)}
+        />
+      )}
       {condDlg !== undefined && <ConditionDialog condition={condDlg} onClose={() => setCondDlg(undefined)} />}
     </div>
   );

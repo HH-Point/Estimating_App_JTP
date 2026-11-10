@@ -24,7 +24,7 @@ export function Sidebar({ onEdit, onNew, onScale }: Props) {
     const st = useStore.getState();
     st.setActiveCondition(c.id);
     st.select(null);
-    st.setTool('draw');
+    if (st.tool !== 'fill') st.setTool('draw');
   };
 
   return (
@@ -50,7 +50,7 @@ export function Sidebar({ onEdit, onNew, onScale }: Props) {
               {list.map((c) => {
                 const t = byId.get(c.id);
                 return (
-                  <li key={c.id} className={c.id === activeId ? (tool === 'draw' ? 'active drawing' : 'active') : ''}>
+                  <li key={c.id} className={c.id === activeId ? (tool === 'draw' || tool === 'fill' ? 'active drawing' : 'active') : ''}>
                     <button className="item" onClick={() => pick(c)} title={`Draw ${c.name}`}>
                       <span className="chip" style={{ background: c.color }} />
                       <span className="name">{c.name}</span>
@@ -74,6 +74,9 @@ export function Sidebar({ onEdit, onNew, onScale }: Props) {
         <h3>How to draw</h3>
         <p>
           <b>Area and length:</b> click each corner, then double-click or press Enter to finish. Hold Shift for straight lines. Backspace removes the last point.
+        </p>
+        <p>
+          <b>Auto-fill:</b> pick an item, choose Auto-fill, then click inside a room. The app follows the room's walls for you.
         </p>
         <p>
           <b>Adjust:</b> with Select, drag a corner, drag a small edge dot to add a corner, Alt-click a corner to remove it, or press Delete to remove the highlight.

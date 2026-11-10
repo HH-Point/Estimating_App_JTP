@@ -6,6 +6,7 @@ interface Props {
   onOpen(): void;
   onExport(): void;
   onScale(): void;
+  onAgent(): void;
   saved: 'saved' | 'saving' | null;
 }
 
@@ -13,9 +14,10 @@ const TOOLS: { tool: Tool; label: string; key: string }[] = [
   { tool: 'select', label: 'Select', key: 'V' },
   { tool: 'pan', label: 'Pan', key: 'H' },
   { tool: 'draw', label: 'Draw', key: 'D' },
+  { tool: 'fill', label: 'Auto-fill', key: 'F' },
 ];
 
-export function Toolbar({ onOpen, onExport, onScale, saved }: Props) {
+export function Toolbar({ onOpen, onExport, onScale, onAgent, saved }: Props) {
   const pdf = useStore((s) => s.pdf);
   const name = useStore((s) => s.pdfName);
   const page = useStore((s) => s.page);
@@ -46,6 +48,9 @@ export function Toolbar({ onOpen, onExport, onScale, saved }: Props) {
           </div>
           <button className={scale ? '' : 'warn'} onClick={onScale} title="Set the drawing scale for this page">
             Scale: {describeScale(scale)}
+          </button>
+          <button className="ai" onClick={onAgent} title="Have an AI agent find the rooms and highlight them">
+            AI take-off
           </button>
           <div className="sep" />
           <button disabled={!canUndo} onClick={() => st().undo()} title="Undo (Ctrl+Z)">

@@ -117,3 +117,27 @@ dialog label.check { flex-direction: row; align-items: center; gap: 8px; font-we
 .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
 .swatches button { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); }
 .swatches button.on { box-shadow: 0 0 0 2px var(--text); }
+
+.viewer.fill { cursor: cell; }
+.viewer.working { cursor: progress; }
+.toast { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 5; background: #1c2024; color: #fff; padding: 8px 12px; border-radius: 8px; max-width: 520px; display: flex; gap: 12px; align-items: center; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+.toast button { background: none; border: 0; color: #c9d1ff; padding: 0; }
+.toast button:hover:not(:disabled) { background: none; text-decoration: underline; }
+.stage { position: relative; min-width: 0; min-height: 0; display: flex; }
+.stage .viewer { flex: 1; }
+button.ai { border-color: #7c5cff; color: #4b2fd6; font-weight: 600; background: #f3f0ff; }
+button.ai:hover:not(:disabled) { background: #e7e1ff; }
+.known label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.known input { width: 90px; }
+.known .row { gap: 6px; }
+
+.agent { position: absolute; top: 12px; right: 12px; z-index: 4; width: 360px; max-height: calc(100% - 24px); overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.18); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.agent textarea { font: inherit; width: 100%; min-height: 84px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+.agent label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+.agent .log { list-style: none; margin: 0; padding: 8px 10px; background: #f6f7f9; border-radius: 6px; font-size: 12px; display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+.agent .log .warn { color: var(--warn); }
+.agent .log .err { color: var(--danger); }
+.agent .log .ok { color: #18794e; font-weight: 600; }
+.agent .provider { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+dialog label input, dialog label select { font-weight: 400; }
+dialog.wide { width: 460px; }

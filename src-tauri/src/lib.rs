@@ -45,15 +45,67 @@ fn write_file(path: String, contents: Vec<u8>) -> Result<(), String> {
     write_atomic(&path, &contents)
 }
 
+#[derive(serde::Serialize)]
+struct HttpResponse {
+    status: u16,
+    headers: Vec<(String, String)>,
+    body: String,
+}
+
+/// Make an HTTP request on behalf of the interface. Used only for talking to
+/// AI services: going through the native side avoids the browser's
+/// cross-origin rules, which block local model servers such as Ollama.
+#[tauri::command]
+async fn http_request(
+    client: tauri::State<'_, reqwest::Client>,
+    method: String,
+    url: String,
+    headers: Vec<(String, String)>,
+    body: Option<String>,
+) -> Result<HttpResponse, String> {
+    let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|e| e.to_string())?;
+    let mut req = client.request(method, &url);
+    for (name, value) in headers {
+        // The interface's own origin and length headers do not apply to this request.
+        let lower = name.to_ascii_lowercase();
+        if matches!(lower.as_str(), "host" | "origin" | "referer" | "content-length") {
+            continue;
+        }
+        req = req.header(name, value);
+    }
+    if let Some(body) = body {
+        req = req.body(body);
+    }
+    let res = req.send().await.map_err(|e| e.to_string())?;
+    let status = res.status().as_u16();
+    let headers = res
+        .headers()
+        .iter()
+        // The body is handed over already decoded, so its original encoding and length no longer describe it.
+        .filter(|(k, _)| !matches!(k.as_str(), "content-encoding" | "content-length" | "transfer-encoding"))
+        .filter_map(|(k, v)| Some((k.to_string(), v.to_str().ok()?.to_string())))
+        .collect();
+    let body = res.text().await.map_err(|e| e.to_string())?;
+    Ok(HttpResponse { status, headers, body })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(
+            reqwest::Client::builder()
+                // Reading a large sheet can take a model several minutes.
+                .timeout(std::time::Duration::from_secs(600))
+                .build()
+                .expect("failed to set up the HTTP client"),
+        )
         .invoke_handler(tauri::generate_handler![
             read_file,
             read_text_file,
             write_text_file,
-            write_file
+            write_file,
+            http_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running JTP Take-Off");

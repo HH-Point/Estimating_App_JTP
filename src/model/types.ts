@@ -42,4 +42,4 @@ export interface Project {
   shapes: Shape[];
 }
 
-export type Tool = 'select' | 'pan' | 'draw' | 'calibrate';
+export type Tool = 'select' | 'pan' | 'draw' | 'fill' | 'calibrate';
